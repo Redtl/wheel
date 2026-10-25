@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Колесо розыгрыша игр</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root{
+    --bg: #080a12;
+    --card: rgba(255,255,255,.045);
+    --card-brd: rgba(255,255,255,.09);
+    --txt: #eef1ff;
+    --muted: #8d93b4;
+    --accent: #7c5cff;
+    --accent2: #22d3ee;
+    --ok: #34d399;
+    --warn: #fbbf24;
+  }
+  html, body { margin:0; padding:0; }
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(900px 600px at 12% -8%, rgba(124,92,255,.28), transparent 60%),
+      radial-gradient(800px 620px at 92% 6%, rgba(34,211,238,.16), transparent 62%),
+      radial-gradient(700px 700px at 60% 110%, rgba(244,114,182,.12), transparent 60%),
+      var(--bg);
+    color: var(--txt);
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 22px clamp(12px, 3vw, 34px) 46px;
+  }
+  h1,h2,h3 { margin:0; }
+  input, button, textarea { font-family: inherit; }
+  button { cursor: pointer; border:0; }
+
+  /* ---------- header ---------- */
+  .topbar{
+    max-width: 1320px; margin: 0 auto 20px;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  .logo{
+    width:46px; height:46px; border-radius:14px; flex:0 0 auto;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display:grid; place-items:center;
+    box-shadow: 0 10px 30px rgba(124,92,255,.45), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .logo svg { width:26px; height:26px; }
+  .titles h1 { font-size: clamp(19px, 2.4vw, 26px); letter-spacing:-.02em; }
+  .titles p { margin:3px 0 0; color: var(--muted); font-size:13px; }
+  .topbar .spacer { flex:1 1 auto; }
+  .sound-btn{
+    background: var(--card); border:1px solid var(--card-brd); color: var(--muted);
+    padding:9px 14px; border-radius:12px; font-size:13px; font-weight:600;
+    display:flex; align-items:center; gap:8px; transition:.18s;
+  }
+  .sound-btn:hover { color:var(--txt); border-color: rgba(255,255,255,.2); }
+  .sound-btn.on { color:#c9c2ff; border-color: rgba(124,92,255,.5); background: rgba(124,92,255,.14); }
+
+  /* ---------- layout ---------- */
+  .layout{
+    max-width: 1480px; margin:0 auto;
+    display:grid; grid-template-columns: auto minmax(0,1.15fr) minmax(320px,.85fr);
+    gap: clamp(16px, 2vw, 26px); align-items:start;
+  }
+  @media (max-width: 1180px){ .poster{ display:none !important; } }
+  @media (max-width: 940px){ .layout{ grid-template-columns: 1fr; } }
+
+  /* ---------- большой постер слева ---------- */
+  .poster{
+    position:sticky; top:20px; width: clamp(170px, 15vw, 232px);
+    display:flex; flex-direction:column; gap:12px; cursor:zoom-in;
+    animation: posterIn .45s cubic-bezier(.2,1.3,.4,1);
+  }
+  .poster[hidden]{ display:none; }
+  @keyframes posterIn{ from{ opacity:0; transform: translateX(-14px); } }
+  .poster-frame{
+    position:relative; aspect-ratio:3/4; border-radius:18px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05);
+    box-shadow: 0 34px 60px -34px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.14);
+    transition: transform .25s, box-shadow .25s, border-color .2s;
+  }
+  .poster-frame::before{
+    content:""; position:absolute; inset:-30% -30% auto auto; width:150%; height:70%;
+    background: radial-gradient(circle, rgba(124,92,255,.35), transparent 62%);
+    pointer-events:none;
+  }
+  .poster:hover .poster-frame{
+    transform: translateY(-3px) scale(1.015);
+    border-color: rgba(124,92,255,.6);
+    box-shadow: 0 44px 70px -32px rgba(124,92,255,.55), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  .poster-frame img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .poster-ph{
+    position:absolute; inset:0; display:grid; place-items:center; color:rgba(255,255,255,.3);
+  }
+  .poster-ph svg{ width:44px; height:44px; }
+  .poster-zoom{
+    position:absolute; bottom:10px; right:10px; width:30px; height:30px; border-radius:9px;
+    background: rgba(8,10,18,.72); border:1px solid rgba(255,255,255,.22); color:#fff;
+    display:grid; place-items:center; opacity:0; transition:.18s;
+  }
+  .poster-zoom svg{ width:15px; height:15px; }
+  .poster:hover .poster-zoom{ opacity:1; }
+  .poster-meta{ text-align:left; padding:0 2px; }
+  .poster-title{
+    font-size:13.5px; font-weight:800; line-height:1.3; color:#fff; letter-spacing:-.01em;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .poster-chip{
+    margin-top:7px; display:inline-flex; align-items:center; gap:6px;
+    font-size:11px; font-weight:800; padding:4px 10px; border-radius:999px; color:#e4dcff;
+    background: rgba(124,92,255,.18); border:1px solid rgba(124,92,255,.42);
+  }
+
+  /* ---------- stage / wheel ---------- */
+  .stage{
+    background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
+    border:1px solid var(--card-brd); border-radius:26px;
+    padding: clamp(16px, 2.4vw, 28px);
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+    box-shadow: 0 30px 70px -40px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.06);
+    position:relative; overflow:hidden;
+  }
+  .stage::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(520px 300px at 50% 0%, rgba(124,92,255,.16), transparent 70%);
+  }
+  .wheel-wrap{
+    position:relative; width: min(100%, 540px); aspect-ratio:1/1;
+    display:grid; place-items:center; z-index:1;
+  }
+  .wheel-glow{
+    position:absolute; inset:-6%; border-radius:50%;
+    background: radial-gradient(circle, rgba(124,92,255,.30), rgba(124,92,255,0) 62%);
+    filter: blur(6px); pointer-events:none;
+  }
+  #wheel{
+    width:100%; height:100%; display:block; border-radius:50%;
+    transform: rotate(0deg); transform-origin:50% 50%;
+    filter: drop-shadow(0 24px 45px rgba(0,0,0,.6));
+    will-change: transform;
+  }
+  .pointer{
+    position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+    width:0; height:0; z-index:4;
+    border-left:17px solid transparent; border-right:17px solid transparent;
+    border-top:34px solid #fff;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,.6)) drop-shadow(0 0 12px rgba(124,92,255,.9));
+  }
+  .pointer::after{
+    content:""; position:absolute; top:-30px; left:-9px; width:18px; height:18px;
+    border-radius:50%; background:#fff; box-shadow:0 0 18px rgba(124,92,255,.9);
+  }
+  .hub{
+    position:absolute; z-index:3; width:27%; aspect-ratio:1/1; border-radius:50%;
+    display:grid; place-items:center; text-align:center; user-select:none; overflow:hidden;
+    background: radial-gradient(circle at 32% 26%, #34366b, #14152b 62%, #0b0c18);
+    border:2px solid rgba(255,255,255,.14);
+    box-shadow: 0 12px 34px rgba(0,0,0,.7), inset 0 2px 0 rgba(255,255,255,.16), 0 0 0 8px rgba(10,12,22,.55);
+    cursor:pointer; transition: transform .16s ease, box-shadow .2s;
+  }
+  .hub:hover { transform: scale(1.045); box-shadow: 0 12px 40px rgba(124,92,255,.55), inset 0 2px 0 rgba(255,255,255,.2), 0 0 0 8px rgba(10,12,22,.55); }
+  .hub:active { transform: scale(.98); }
+  .hub-cover{
+    position:absolute; inset:0; border-radius:50%; background-size:cover; background-position:center;
+    opacity:0; transform: scale(1.02); transition: opacity .35s ease; pointer-events:none;
+  }
+  .hub-cover::after{
+    content:""; position:absolute; inset:0; border-radius:50%;
+    background: radial-gradient(circle at 50% 44%, rgba(8,10,20,.14), rgba(8,10,20,.62) 62%, rgba(8,10,20,.88) 100%);
+  }
+  .hub.has-cover .hub-cover{ opacity:1; }
+  .hub-inner{ position:relative; z-index:2; display:grid; place-items:center; width:100%; height:100%; }
+  .hub span{
+    font-size: clamp(12px, 2.1vw, 17px); font-weight:800; letter-spacing:.16em;
+    background: linear-gradient(135deg,#fff,#b9a9ff); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter: drop-shadow(0 1px 6px rgba(0,0,0,.6));
+  }
+  .hub.has-cover span{ background: linear-gradient(135deg,#fff,#efe9ff); -webkit-background-clip:text; background-clip:text; }
+  .hub.busy { animation: hubPulse 1.1s ease-in-out infinite; }
+  @keyframes hubPulse { 50% { box-shadow: 0 12px 44px rgba(124,92,255,.7), inset 0 2px 0 rgba(255,255,255,.2), 0 0 0 8px rgba(10,12,22,.55); } }
+
+  .result-strip{
+    width:100%; max-width:540px; min-height:52px; z-index:1;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:12px 16px; border-radius:16px; text-align:center;
+    background: rgba(255,255,255,.04); border:1px dashed rgba(255,255,255,.12);
+    color: var(--muted); font-size:14px; transition:.25s;
+  }
+  .result-strip.win{
+    background: linear-gradient(120deg, rgba(124,92,255,.24), rgba(34,211,238,.18));
+    border:1px solid rgba(124,92,255,.55); color:#fff;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.05), 0 18px 40px -22px rgba(124,92,255,.9);
+    animation: pop .45s cubic-bezier(.2,1.5,.4,1);
+  }
+  .result-strip b { font-size: clamp(15px, 2vw, 19px); letter-spacing:-.01em; }
+  @keyframes pop { from { transform: scale(.94); opacity:.2; } }
+
+  .actions{ display:flex; gap:12px; width:100%; max-width:540px; z-index:1; }
+  .btn{
+    border-radius:14px; font-size:15px; font-weight:700; padding:15px 18px;
+    transition: transform .15s, box-shadow .2s, background .2s, border-color .2s;
+    display:inline-flex; align-items:center; justify-content:center; gap:9px;
+  }
+  .btn:active { transform: translateY(1px) scale(.995); }
+  .btn.primary{
+    flex:1 1 auto; color:#fff;
+    background: linear-gradient(120deg, #7c5cff, #4f7cff 52%, #22d3ee);
+    box-shadow: 0 16px 34px -16px rgba(124,92,255,.95), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  .btn.primary:hover { box-shadow: 0 20px 42px -16px rgba(124,92,255,1), inset 0 1px 0 rgba(255,255,255,.35); }
+  .btn.primary:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+  .btn.ghost{
+    color: var(--txt); background: rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.12); flex:0 0 auto;
+  }
+  .btn.ghost:hover{ background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.22); }
+  .btn.small{ padding:11px 14px; font-size:13.5px; border-radius:12px; }
+
+  /* ---------- sidebar ---------- */
+  .side{ display:flex; flex-direction:column; gap: clamp(14px,1.6vw,20px); }
+  .card{
+    background: var(--card); border:1px solid var(--card-brd); border-radius:22px;
+    padding:18px; backdrop-filter: blur(10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .card-head{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .card-head h2{ font-size:15px; letter-spacing:.02em; text-transform:uppercase; color:#c3c7e6; }
+  .badge{
+    margin-left:auto; font-size:12px; font-weight:800; padding:4px 10px; border-radius:999px;
+    background: rgba(124,92,255,.18); color:#c9beff; border:1px solid rgba(124,92,255,.35);
+  }
+
+  /* game card */
+  .game-row{ display:flex; gap:14px; align-items:flex-start; }
+  .cover-box{
+    position:relative; flex:0 0 auto; width:132px; aspect-ratio:3/4; border-radius:16px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04);
+    cursor:pointer; transition:.2s; display:grid; place-items:center;
+    box-shadow: 0 16px 32px -22px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .cover-box:hover{ border-color: rgba(124,92,255,.75); box-shadow: 0 0 0 3px rgba(124,92,255,.16); }
+  .cover-box.drag{ border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(34,211,238,.25); }
+  #coverImg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none; }
+  #coverImg.show{ display:block; }
+  .cover-empty{ display:flex; flex-direction:column; align-items:center; gap:7px; color: var(--muted); font-size:11.5px; text-align:center; padding:8px; line-height:1.3; }
+  .cover-empty svg{ width:30px; height:30px; opacity:.7; }
+  .cover-zoom{
+    position:absolute; bottom:6px; right:6px; width:28px; height:28px; border-radius:9px;
+    background: rgba(8,10,18,.82); color:#fff; display:none; place-items:center;
+    border:1px solid rgba(255,255,255,.22); transition:.16s;
+  }
+  .cover-zoom svg{ width:15px; height:15px; }
+  .cover-zoom:hover{ background: rgba(124,92,255,.9); border-color: rgba(255,255,255,.4); }
+  .cover-box.has-cover .cover-zoom{ display:grid; }
+  .cover-box.has-cover .cover-clear{ display:grid; }
+  .cover-box.has-cover .cover-empty{ display:none; }
+  .cover-box:hover #coverImg{ transform: scale(1.05); }
+  #coverImg{ transition: transform .35s ease; }
+  .cover-clear{
+    position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
+    background: rgba(8,10,18,.82); color:#fff; font-size:14px; line-height:1;
+    display:none; place-items:center; border:1px solid rgba(255,255,255,.2);
+  }
+  .cover-box.has-cover .cover-clear{ display:grid; }
+  .cover-box.has-cover .cover-empty{ display:none; }
+
+
+  /* ---------- lightbox ---------- */
+  .lightbox{
+    position:fixed; inset:0; z-index:90; display:none; place-items:center; padding:24px;
+    background: rgba(6,7,14,.92); backdrop-filter: blur(10px);
+  }
+  .lightbox.open{ display:grid; animation: lbIn .22s ease; }
+  @keyframes lbIn{ from{ opacity:0; } }
+  .lightbox img{
+    max-width: min(92vw, 860px); max-height: 86vh; border-radius:16px;
+    border:1px solid rgba(255,255,255,.18); box-shadow: 0 50px 100px -40px #000;
+    animation: pop .28s cubic-bezier(.2,1.4,.4,1);
+  }
+  .lightbox .lb-hint{
+    position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
+    font-size:12.5px; color: rgba(255,255,255,.6);
+  }
+  .lb-close{
+    position:absolute; top:18px; right:20px; width:42px; height:42px; border-radius:50%;
+    background: rgba(255,255,255,.1); color:#fff; font-size:22px; line-height:1;
+    border:1px solid rgba(255,255,255,.22); display:grid; place-items:center; transition:.16s;
+  }
+  .lb-close:hover{ background: rgba(255,255,255,.2); }
+  @media (max-width: 480px){ .cover-box{ width:104px; } }
+
+  .fields{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:7px; }
+  label.lbl{ font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-top:2px; }
+  .input{
+    width:100%; background: rgba(9,11,20,.6); border:1px solid rgba(255,255,255,.12);
+    color:var(--txt); padding:12px 13px; border-radius:12px; font-size:14.5px; outline:none; transition:.18s;
+  }
+  .input::placeholder{ color:#5c6285; }
+  .input:focus{ border-color: rgba(124,92,255,.85); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
+  .stepper{ display:flex; align-items:center; gap:8px; }
+  .stepper button{
+    width:40px; height:42px; border-radius:11px; font-size:20px; font-weight:700; line-height:1;
+    background: rgba(255,255,255,.06); color:#fff; border:1px solid rgba(255,255,255,.13); transition:.16s;
+  }
+  .stepper button:hover{ background: rgba(124,92,255,.28); border-color: rgba(124,92,255,.6); }
+  .stepper input{ -moz-appearance:textfield; text-align:center; font-weight:800; font-size:16px; }
+  .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .hint{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+  /* participants */
+  .add-row{ display:flex; gap:9px; }
+  .add-row .input{ flex:1 1 auto; }
+  .add-row .btn.small{ flex:0 0 auto; background: linear-gradient(135deg,#7c5cff,#4f7cff); color:#fff; width:44px; padding:0; font-size:19px; }
+  .add-row .btn.small:hover{ filter:brightness(1.1); }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; max-height:210px; overflow:auto; padding-right:2px; }
+  .chips::-webkit-scrollbar{ width:8px; }
+  .chips::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.14); border-radius:8px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:7px; max-width:100%;
+    padding:7px 8px 7px 12px; border-radius:999px; font-size:13.5px; font-weight:600;
+    background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.11);
+    animation: chipIn .22s ease;
+  }
+  @keyframes chipIn{ from{ transform: scale(.9); opacity:0; } }
+  .chip .dot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .chip span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chip button{
+    width:19px; height:19px; border-radius:50%; background: rgba(255,255,255,.09);
+    color:#c7cbe6; font-size:13px; line-height:1; display:grid; place-items:center; transition:.15s;
+  }
+  .chip button:hover{ background: rgba(251,113,133,.9); color:#fff; }
+  .chip.won{ opacity:.45; }
+  .chip.won span{ text-decoration: line-through; }
+  .empty-note{ color:var(--muted); font-size:13px; padding:10px 2px; }
+
+  details.bulk{ margin-top:14px; border-top:1px solid rgba(255,255,255,.07); padding-top:12px; }
+  details.bulk summary{
+    cursor:pointer; font-size:13px; font-weight:700; color:#a9afd0; list-style:none;
+    display:flex; align-items:center; gap:7px; user-select:none;
+  }
+  details.bulk summary::-webkit-details-marker{ display:none; }
+  details.bulk summary::before{ content:"▸"; transition:.2s; color:var(--accent2); }
+  details.bulk[open] summary::before{ transform: rotate(90deg); }
+  details.bulk textarea{
+    width:100%; margin-top:11px; resize:vertical; min-height:96px;
+    background: rgba(9,11,20,.6); border:1px solid rgba(255,255,255,.12); border-radius:12px;
+    color:var(--txt); padding:11px 12px; font-size:13.5px; outline:none; line-height:1.5;
+  }
+  details.bulk textarea:focus{ border-color: rgba(124,92,255,.85); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
+  .bulk-actions{ display:flex; gap:9px; margin-top:10px; }
+  .bulk-actions .btn{ flex:1 1 0; }
+  .row-links{ display:flex; justify-content:space-between; margin-top:14px; gap:10px; }
+  .link{ background:none; color:var(--muted); font-size:12.5px; font-weight:600; padding:4px 0; text-decoration:underline; text-underline-offset:3px; }
+  .link:hover{ color:#fff; }
+
+  /* winners */
+  .progress{ height:7px; border-radius:99px; background: rgba(255,255,255,.08); overflow:hidden; margin-bottom:13px; }
+  .progress > i{ display:block; height:100%; width:0%; border-radius:99px; background: linear-gradient(90deg,#7c5cff,#22d3ee); transition: width .45s cubic-bezier(.3,1,.4,1); }
+  .winner-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px; }
+  .winner-list li{
+    display:flex; align-items:center; gap:11px; padding:11px 13px; border-radius:13px;
+    background: linear-gradient(100deg, rgba(124,92,255,.16), rgba(34,211,238,.07));
+    border:1px solid rgba(124,92,255,.3); animation: pop .4s cubic-bezier(.2,1.5,.4,1);
+  }
+  .winner-list .rank{
+    width:26px; height:26px; flex:0 0 auto; border-radius:9px; display:grid; place-items:center;
+    font-size:12px; font-weight:900; color:#0b0c18; background: linear-gradient(135deg,#ffd76e,#ffb02e);
+  }
+  .winner-list .thumb{
+    width:24px; height:32px; flex:0 0 auto; border-radius:7px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); position:relative;
+  }
+  .winner-list .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .winner-list .nm{ font-weight:800; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .winner-list .cup{ margin-left:auto; font-size:15px; }
+
+  /* toast */
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform: translate(-50%, 24px);
+    background: rgba(16,18,32,.96); border:1px solid rgba(255,255,255,.14); color:#fff;
+    padding:12px 20px; border-radius:14px; font-size:14px; font-weight:600;
+    box-shadow: 0 20px 50px -18px rgba(0,0,0,.9); opacity:0; pointer-events:none;
+    transition:.28s cubic-bezier(.2,1.2,.4,1); z-index: 80; max-width: min(92vw, 460px); text-align:center;
+  }
+  .toast.show{ opacity:1; transform: translate(-50%, 0); }
+  #confetti{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:70; }
+  .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8.5 8.5v-3a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3"/>
+      <path d="M12 8.5V17"/>
+      <circle cx="12" cy="19.5" r="1.6" fill="#fff" stroke="none"/>
+      <path d="M3.5 17.5c1.2-4 2.3-6.5 3.4-7.6 1-1 2.2-1.4 3.6-1.4h3c1.4 0 2.6.4 3.6 1.4 1.1 1.1 2.2 3.6 3.4 7.6.6 2-.3 3.4-2.3 3.4-1.3 0-2.1-.5-3-1.6l-.7-.9c-.5-.7-1-1-1.5-1s-1 .3-1.5 1l-.7.9c-.9 1.1-1.7 1.6-3 1.6-2 0-2.9-1.4-2.3-3.4Z" opacity=".55"/>
+    </svg>
+  </div>
+  <div class="titles">
+    <h1>Колесо розыгрыша игр</h1>
+    <p>Добавьте участников, укажите игру и количество копий — и крутите</p>
+  </div>
+  <div class="spacer"></div>
+  <button class="sound-btn on" id="soundBtn" title="Звук">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6a8 8 0 0 1 0 12"/>
+    </svg>
+    <span id="soundLabel">Звук вкл.</span>
+  </button>
+</div>
+
+<div class="layout">
+  <!-- ================= POSTER ================= -->
+  <aside class="poster" id="gamePoster" hidden title="Открыть обложку">
+    <div class="poster-frame">
+      <img id="posterImg" alt="Обложка игры">
+      <div class="poster-ph" id="posterPh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m21 15-5-5L5 20"/>
+        </svg>
+      </div>
+      <div class="poster-zoom" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+      </div>
+    </div>
+    <div class="poster-meta">
+      <div class="poster-title" id="posterTitle"></div>
+      <div class="poster-chip" id="posterChip"></div>
+    </div>
+  </aside>
+
+  <!-- ================= STAGE ================= -->
+  <section class="stage">
+    <div class="wheel-wrap" id="wheelWrap">
+      <div class="wheel-glow"></div>
+      <canvas id="wheel"></canvas>
+      <div class="pointer" aria-hidden="true"></div>
+      <div class="hub" id="hub" role="button" tabindex="0" aria-label="Крутить колесо">
+        <div class="hub-cover" id="hubCover"></div>
+        <div class="hub-inner"><span>SPIN</span></div>
+      </div>
+    </div>
+
+    <div class="result-strip" id="resultStrip">Колесо готово к розыгрышу</div>
+
+    <div class="actions">
+      <button class="btn primary" id="spinBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 3v6h-6"/></svg>
+        Крутить колесо
+      </button>
+      <button class="btn ghost" id="resetBtn" title="Сбросить результаты розыгрыша">Сброс</button>
+    </div>
+  </section>
+
+  <!-- ================= SIDEBAR ================= -->
+  <div class="side">
+
+    <!-- game -->
+    <div class="card">
+      <div class="card-head"><h2>Разыгрываемая игра</h2></div>
+      <div class="game-row">
+        <div class="cover-box" id="coverBox" title="Загрузить обложку">
+          <img id="coverImg" alt="Обложка игры">
+          <div class="cover-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m21 15-5-5L5 20"/>
+            </svg>
+            <span>Загрузить<br>обложку</span>
+          </div>
+          <button class="cover-zoom" id="coverZoom" title="Открыть крупно">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+          </button>
+          <button class="cover-clear" id="coverClear" title="Удалить обложку">×</button>
+          <input type="file" id="coverInput" accept="image/*" hidden>
+        </div>
+        <div class="fields">
+          <label class="lbl" for="gameInput">Название игры</label>
+          <input class="input" id="gameInput" placeholder="Например, Elden Ring" autocomplete="off">
+          <label class="lbl" for="copiesInput">Количество копий</label>
+          <div class="stepper">
+            <button id="minusCopy" aria-label="Меньше">−</button>
+            <input class="input" id="copiesInput" type="number" min="1" max="99" value="1">
+            <button id="plusCopy" aria-label="Больше">+</button>
+          </div>
+          <div class="hint" id="copiesHint">1 копия — 1 победитель</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- participants -->
+    <div class="card">
+      <div class="card-head">
+        <h2>Участники</h2>
+        <span class="badge" id="pCount">0</span>
+      </div>
+      <div class="add-row">
+        <input class="input" id="pInput" placeholder="Имя или ник участника" autocomplete="off">
+        <button class="btn small" id="addBtn" title="Добавить">+</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <details class="bulk">
+        <summary>Вставить списком</summary>
+        <textarea id="bulkInput" placeholder="Каждый участник с новой строки (или через запятую)…"></textarea>
+        <div class="bulk-actions">
+          <button class="btn small primary" id="bulkReplace" style="flex:1">Заменить список</button>
+          <button class="btn small ghost" id="bulkAdd" style="flex:1">Добавить к списку</button>
+        </div>
+      </details>
+      <div class="row-links">
+        <button class="link" id="shuffleBtn">Перемешать</button>
+        <button class="link" id="clearAllBtn">Очистить список</button>
+      </div>
+    </div>
+
+    <!-- winners -->
+    <div class="card">
+      <div class="card-head"><h2>Победители</h2><span class="badge" id="wCount">0 / 1</span></div>
+      <div class="progress"><i id="wBar"></i></div>
+      <ul class="winner-list" id="winnerList"></ul>
+      <div class="empty-note" id="wEmpty">Пока никого не разыграли.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Обложка игры">
+  <button class="lb-close" id="lbClose" title="Закрыть (Esc)">×</button>
+  <img id="lbImg" alt="Обложка игры">
+  <div class="lb-hint">Клик или Esc — закрыть</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ======================= constants ======================= */
+  var KEY = 'gameWheel.v1';
+  var PALETTE = ['#6d5efc','#22d3ee','#f472b6','#fbbf24','#34d399','#fb7185','#60a5fa','#a78bfa','#f59e0b','#2dd4bf','#e879f9','#38bdf8'];
+  var FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+  var $ = function(s, r){ return (r || document).querySelector(s); };
+
+  /* ======================= state ======================= */
+  var state = {
+    game: '',
+    copies: 1,
+    cover: null,
+    participants: ['CyberFox','NightOwl','Pixel','Nova','Kite','Raven','Ghost','Лиса'],
+    winners: [],          // [{ name, idx }]
+    rot: 0,
+    spinning: false,
+    sound: true
+  };
+
+  function wonSet(){
+    var s = new Set();
+    state.winners.forEach(function(w){ s.add(w.idx); });
+    return s;
+  }
+
+  /* ======================= persistence ======================= */
+  function save(){
+    try{
+      localStorage.setItem(KEY, JSON.stringify({
+        game: state.game, copies: state.copies, cover: state.cover,
+        participants: state.participants, winners: state.winners, sound: state.sound
+      }));
+    }catch(e){ /* quota exceeded — ignore */ }
+  }
+  function load(){
+    var raw;
+    try{ raw = localStorage.getItem(KEY); }catch(e){ return; }
+    if(!raw) return;
+    try{
+      var d = JSON.parse(raw);
+      if(typeof d.game === 'string') state.game = d.game;
+      if(d.copies) state.copies = Math.max(1, Math.min(99, d.copies|0));
+      if(typeof d.cover === 'string') state.cover = d.cover;
+      if(Array.isArray(d.participants)) state.participants = d.participants.slice(0, 200);
+      if(typeof d.sound === 'boolean') state.sound = d.sound;
+      if(Array.isArray(d.winners)){
+        state.winners = d.winners.filter(function(w){
+          return w && typeof w.name === 'string' && state.participants[w.idx] === w.name;
+        });
+      }
+    }catch(e){}
+  }
+
+  /* ======================= audio ======================= */
+  /* Звук без шума: только тональные составляющие —
+     деревянные щелчки указателя, колокольчиковая фанфара и мягкий блип. */
+  var ac = null, master = null, wet = null;
+  var activeSources = [];      // всё, что звучит — чтобы уметь мгновенно заглушить
+  var MASTER_LEVEL = 0.82;
+
+  function ensureGraph(){
+    if(ac){
+      if(ac.state === 'suspended') ac.resume();
+      return ac;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    ac = new AC();
+
+    master = ac.createGain();
+    master.gain.value = state.sound ? MASTER_LEVEL : 0;
+
+    var comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -20;
+    comp.knee.value = 26;
+    comp.ratio.value = 3;
+    comp.attack.value = 0.005;
+    comp.release.value = 0.25;
+
+    master.connect(comp);
+    comp.connect(ac.destination);
+
+    // деликатное «пространство»: затухающая задержка (без самовозбуждения)
+    var dly = ac.createDelay(0.9);
+    dly.delayTime.value = 0.135;
+    var fb = ac.createGain(); fb.gain.value = 0.22;
+    var damp = ac.createBiquadFilter();
+    damp.type = 'lowpass'; damp.frequency.value = 2400;
+    wet = ac.createGain(); wet.gain.value = 0.2;
+    dly.connect(damp); damp.connect(fb); fb.connect(dly);
+    damp.connect(wet); wet.connect(master);
+
+    return ac;
+  }
+
+  /* Учёт всех источников: по окончании они сами отключаются */
+  function track(src){
+    activeSources.push(src);
+    src.onended = function(){
+      try{ src.disconnect(); }catch(e){}
+      var i = activeSources.indexOf(src);
+      if(i >= 0) activeSources.splice(i, 1);
+    };
+    return src;
+  }
+
+  /* Аварийное глушение: останавливает всё, что ещё звучит */
+  function stopAllAudio(){
+    var list = activeSources.slice();
+    activeSources.length = 0;
+    for(var i = 0; i < list.length; i++){
+      try{ list[i].stop(); }catch(e){}
+      try{ list[i].disconnect(); }catch(e){}
+    }
+  }
+
+  function setMaster(level){
+    if(!ac || !master) return;
+    var t = ac.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setTargetAtTime(level, t, 0.02);
+  }
+
+  function nowMs(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+
+  /* Щелчок указателя — чистый тон, без шума.
+     Деревянный «тук»: быстрый треугольник + короткий синус-обертон. */
+  function tick(vel){
+    if(!state.sound) return;
+    var a = ensureGraph(); if(!a) return;
+    vel = Math.max(0, Math.min(1, vel == null ? 0.5 : vel));
+    var t = a.currentTime + 0.001;
+
+    // основной «корпус» удара
+    var f0 = (980 - 320 * (1 - vel)) * (1 + (Math.random() - 0.5) * 0.03);
+    var o1 = track(a.createOscillator());
+    o1.type = 'triangle';
+    o1.frequency.setValueAtTime(f0, t);
+    o1.frequency.exponentialRampToValueAtTime(f0 * 0.78, t + 0.06);
+    var lp = a.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 2400 + 1400 * vel;
+    lp.Q.value = 0.7;
+    var g1 = a.createGain();
+    var peak = 0.055 + 0.075 * (1 - vel);
+    g1.gain.setValueAtTime(0.0001, t);
+    g1.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.075 + 0.05 * (1 - vel));
+    o1.connect(lp); lp.connect(g1); g1.connect(master);
+    o1.start(t); o1.stop(t + 0.16);
+
+    // короткий обертон — «щелчок» дерева
+    var o2 = track(a.createOscillator());
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(f0 * 2.02, t);
+    var g2 = a.createGain();
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(0.022 + 0.03 * (1 - vel), t + 0.003);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    o2.connect(g2); g2.connect(master);
+    o2.start(t); o2.stop(t + 0.07);
+  }
+
+  /* Колокольчик с FM-тембром — основа фанфары */
+  function bell(freq, when, amp, dur){
+    var car = track(ac.createOscillator());
+    car.type = 'sine'; car.frequency.value = freq;
+    var mod = track(ac.createOscillator());
+    mod.type = 'sine'; mod.frequency.value = freq * 2.01;
+    var modGain = ac.createGain();
+    modGain.gain.setValueAtTime(freq * 0.95, when);
+    modGain.gain.exponentialRampToValueAtTime(freq * 0.015, when + dur * 0.45);
+    mod.connect(modGain); modGain.connect(car.frequency);
+
+    var g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(amp, when + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    car.connect(g); g.connect(master); g.connect(wet);
+    car.start(when); car.stop(when + dur + 0.05);
+    mod.start(when); mod.stop(when + dur + 0.05);
+  }
+
+  /* Победная фанфара: восходящее арпеджио + мягкий аккорд-«шиммер» */
+  function fanfare(){
+    if(!state.sound) return;
+    var a = ensureGraph(); if(!a) return;
+    var t = a.currentTime + 0.04;
+
+    [523.25, 659.25, 783.99, 1046.50].forEach(function(f, i){
+      bell(f, t + i * 0.115, 0.095, 1.15);
+    });
+    [1046.50, 1318.51, 1567.98].forEach(function(f, i){
+      bell(f, t + 0.52 + i * 0.025, 0.045, 1.7);
+    });
+
+    var o = track(a.createOscillator());
+    o.type = 'sine'; o.frequency.value = 261.63;
+    var g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.045, t + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + 1.55);
+  }
+
+  /* Короткий мягкий «блип» для интерфейса */
+  function blip(){
+    if(!state.sound) return;
+    var a = ensureGraph(); if(!a) return;
+    var t = a.currentTime + 0.001;
+    var o = track(a.createOscillator());
+    o.type = 'sine';
+    o.frequency.setValueAtTime(720, t);
+    o.frequency.exponentialRampToValueAtTime(1080, t + 0.055);
+    var g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.045, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    o.connect(g); g.connect(master); g.connect(wet);
+    o.start(t); o.stop(t + 0.15);
+  }
+
+  /* ======================= canvas wheel ======================= */
+  var canvas = $('#wheel'), ctx = canvas.getContext('2d');
+  var wrap = $('#wheelWrap');
+
+  function drawWheel(){
+    var size = canvas.clientWidth || 480;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+
+    var cx = size / 2, cy = size / 2;
+    var R = size / 2 - 16;
+    var n = state.participants.length;
+    var wset = wonSet();
+
+    /* empty state */
+    if(n === 0){
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,.03)'; ctx.fill();
+      ctx.setLineDash([9, 11]); ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,.42)';
+      ctx.font = '600 ' + Math.round(size / 24) + 'px ' + FONT;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Добавьте участников', cx, cy + R * 0.44);
+      return;
+    }
+
+    var seg = (Math.PI * 2) / n;
+
+    /* segments */
+    for(var i = 0; i < n; i++){
+      var a0 = i * seg, a1 = a0 + seg;
+      var won = wset.has(i);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = won ? '#212536' : PALETTE[i % PALETTE.length];
+      ctx.fill();
+
+      if(!won){
+        var g = ctx.createRadialGradient(cx, cy, R * 0.12, cx, cy, R);
+        g.addColorStop(0, 'rgba(255,255,255,.20)');
+        g.addColorStop(0.62, 'rgba(255,255,255,.02)');
+        g.addColorStop(1, 'rgba(0,0,0,.26)');
+        ctx.fillStyle = g; ctx.fill();
+      }
+      ctx.lineWidth = n > 26 ? 1 : 2;
+      ctx.strokeStyle = 'rgba(9,11,20,.55)';
+      ctx.stroke();
+    }
+
+    /* labels */
+    var fs = Math.max(10, Math.min(19, size / 27));
+    var maxW = R - 46;
+    ctx.font = '700 ' + fs + 'px ' + FONT;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for(var j = 0; j < n; j++){
+      var mid = j * seg + seg / 2;
+      var label = String(state.participants[j]);
+      if(ctx.measureText(label).width > maxW){
+        var trunc = label;
+        while(trunc.length > 1 && ctx.measureText(trunc + '…').width > maxW) trunc = trunc.slice(0, -1);
+        label = trunc + '…';
+      }
+      var isWon = wset.has(j);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
+      ctx.fillStyle = isWon ? 'rgba(255,255,255,.30)' : 'rgba(255,255,255,.97)';
+      ctx.shadowColor = 'rgba(0,0,0,.45)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(label, R - 18, 0);
+      ctx.restore();
+    }
+
+    /* rim */
+    var rim = ctx.createLinearGradient(0, 0, size, size);
+    rim.addColorStop(0, '#8f7bff');
+    rim.addColorStop(0.5, '#22d3ee');
+    rim.addColorStop(1, '#7c5cff');
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 7, 0, Math.PI * 2);
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = rim;
+    ctx.stroke();
+
+    var dots = Math.max(12, Math.min(36, n * 2));
+    for(var k = 0; k < dots; k++){
+      var a = (k / dots) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * (R + 7), cy + Math.sin(a) * (R + 7), 2.1, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      ctx.fill();
+    }
+  }
+
+  function applyRotation(){
+    canvas.style.transform = 'rotate(' + state.rot + 'deg)';
+  }
+
+  /* ======================= render UI ======================= */
+  var chipsEl = $('#chips'), pCountEl = $('#pCount');
+  var winnerListEl = $('#winnerList'), wCountEl = $('#wCount'), wBar = $('#wBar'), wEmpty = $('#wEmpty');
+
+  function renderParticipants(){
+    chipsEl.innerHTML = '';
+    var wset = wonSet();
+    if(!state.participants.length){
+      var d = document.createElement('div');
+      d.className = 'empty-note';
+      d.textContent = 'Список пуст. Добавьте участников вручную или вставьте списком.';
+      chipsEl.appendChild(d);
+    }
+    state.participants.forEach(function(p, i){
+      var chip = document.createElement('div');
+      chip.className = 'chip' + (wset.has(i) ? ' won' : '');
+      var dot = document.createElement('i');
+      dot.className = 'dot';
+      dot.style.background = PALETTE[i % PALETTE.length];
+      var sp = document.createElement('span');
+      sp.textContent = p;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = '&times;';
+      btn.title = 'Удалить';
+      btn.addEventListener('click', function(){ removeParticipant(i); });
+      chip.appendChild(dot); chip.appendChild(sp); chip.appendChild(btn);
+      chipsEl.appendChild(chip);
+    });
+    pCountEl.textContent = state.participants.length;
+  }
+
+  function plural(n, one, few, many){
+    var n10 = n % 10, n100 = n % 100;
+    if(n10 === 1 && n100 !== 11) return one;
+    if(n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return few;
+    return many;
+  }
+
+  function renderGame(){
+    $('#gameInput').value = state.game;
+    $('#copiesInput').value = state.copies;
+    var hint = $('#copiesHint');
+    var c = state.copies;
+    hint.textContent = c + ' ' + plural(c, 'копия', 'копии', 'копий') + ' — ' +
+                       c + ' ' + plural(c, 'победитель', 'победителя', 'победителей');
+
+    var img = $('#coverImg'), box = $('#coverBox');
+    if(state.cover){
+      img.src = state.cover;
+      img.classList.add('show');
+      box.classList.add('has-cover');
+    }else{
+      img.removeAttribute('src');
+      img.classList.remove('show');
+      box.classList.remove('has-cover');
+    }
+
+    renderGameArt();
+  }
+
+  /* Обложка игры: постер слева + центр колеса + миниатюры победителей */
+  function renderGameArt(){
+    renderPoster();
+    renderHubCover();
+    renderWinners();
+  }
+
+  /* Большой постер слева от колеса */
+  function renderPoster(){
+    var poster = $('#gamePoster');
+    var title = (state.game || '').trim();
+    var has = !!state.cover || !!title;
+    poster.hidden = !has;
+    if(!has) return;
+
+    $('#posterTitle').textContent = title || 'Разыгрываемая игра';
+    var c = state.copies;
+    $('#posterChip').textContent = '🎁 ' + c + ' ' + plural(c, 'копия', 'копии', 'копий');
+
+    var img = $('#posterImg'), ph = $('#posterPh');
+    if(state.cover){
+      img.src = state.cover;
+      img.style.display = 'block';
+      ph.style.display = 'none';
+      poster.style.cursor = 'zoom-in';
+    }else{
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      ph.style.display = 'grid';
+      poster.style.cursor = 'default';
+    }
+  }
+
+  /* Обложка в центре колеса, под кнопкой SPIN */
+  function renderHubCover(){
+    var hub = $('#hub'), hc = $('#hubCover');
+    if(state.cover){
+      hc.style.backgroundImage = 'url("' + state.cover + '")';
+      hub.classList.add('has-cover');
+    }else{
+      hc.style.backgroundImage = 'none';
+      hub.classList.remove('has-cover');
+    }
+  }
+
+  function renderWinners(){
+    winnerListEl.innerHTML = '';
+    state.winners.forEach(function(w, i){
+      var li = document.createElement('li');
+      var rank = document.createElement('div');
+      rank.className = 'rank'; rank.textContent = i + 1;
+      li.appendChild(rank);
+      if(state.cover){
+        var th = document.createElement('div');
+        th.className = 'thumb';
+        var thImg = document.createElement('img');
+        thImg.src = state.cover;
+        thImg.alt = '';
+        th.appendChild(thImg);
+        li.appendChild(th);
+      }
+      var nm = document.createElement('div');
+      nm.className = 'nm'; nm.textContent = w.name;
+      var cup = document.createElement('div');
+      cup.className = 'cup'; cup.textContent = '🏆';
+      li.appendChild(nm); li.appendChild(cup);
+      winnerListEl.appendChild(li);
+    });
+    wEmpty.style.display = state.winners.length ? 'none' : 'block';
+    wCountEl.textContent = state.winners.length + ' / ' + state.copies;
+    wBar.style.width = Math.min(100, (state.winners.length / Math.max(1, state.copies)) * 100) + '%';
+
+    var btn = $('#spinBtn');
+    var done = state.winners.length >= state.copies;
+    var noLeft = state.winners.length >= state.participants.length && state.participants.length > 0;
+    btn.disabled = state.spinning || done || noLeft || state.participants.length < 2;
+    if(!state.spinning){
+      var icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 3v6h-6"/></svg>';
+      var check = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>';
+      btn.innerHTML = (done || noLeft) ? check + ' Все разыграно' : icon + ' Крутить колесо';
+    }
+  }
+
+  function renderAll(){
+    renderGame();
+    renderParticipants();
+    renderWinners();
+    drawWheel();
+    applyRotation();
+  }
+
+  /* ======================= toast ======================= */
+  var toastEl = $('#toast'), toastTimer = null;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2600);
+  }
+
+  /* ======================= participants ops ======================= */
+  function resetWinners(silent){
+    if(!state.winners.length) return;
+    state.winners = [];
+    if(!silent) toast('Результаты розыгрыша сброшены');
+  }
+
+  function addParticipant(name){
+    name = String(name).trim().replace(/\s+/g, ' ');
+    if(!name) return false;
+    if(state.participants.length >= 200){ toast('Максимум 200 участников'); return false; }
+    if(state.participants.some(function(p){ return p.toLowerCase() === name.toLowerCase(); })){
+      toast('«' + name + '» уже в списке');
+      return false;
+    }
+    state.participants.push(name);
+    resetWinners(true);
+    return true;
+  }
+
+  function removeParticipant(i){
+    if(state.spinning){ toast('Дождитесь остановки колеса'); return; }
+    state.participants.splice(i, 1);
+    resetWinners(true);
+    if(Number($('#copiesInput').value) > state.participants.length){
+      state.copies = Math.max(1, state.participants.length || 1);
+    }
+    save(); renderAll();
+  }
+
+  function parseList(text){
+    return text.split(/[\n,;]+/).map(function(s){ return s.trim().replace(/\s+/g, ' '); }).filter(Boolean);
+  }
+
+  /* ======================= cover upload ======================= */
+  function handleCoverFile(file){
+    if(!file) return;
+    if(!/^image\//.test(file.type)){ toast('Нужен файл изображения'); return; }
+    var reader = new FileReader();
+    reader.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        // downscale to keep localStorage happy
+        var max = 1200;
+        var w = img.width, h = img.height;
+        var k = Math.min(1, max / Math.max(w, h));
+        var cw = Math.round(w * k), ch = Math.round(h * k);
+        var c = document.createElement('canvas');
+        c.width = cw; c.height = ch;
+        c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+        var data;
+        try{ data = c.toDataURL('image/jpeg', 0.88); }catch(e){ data = reader.result; }
+        state.cover = data;
+        save(); renderGame();
+        toast('Обложка загружена');
+      };
+      img.onerror = function(){ toast('Не удалось прочитать изображение'); };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ======================= confetti ======================= */
+  var confCanvas = $('#confetti'), cctx = confCanvas.getContext('2d');
+  var parts = [], confRAF = null;
+  function confSize(){ confCanvas.width = window.innerWidth; confCanvas.height = window.innerHeight; }
+  function burst(){
+    confSize();
+    var cx = window.innerWidth / 2, cy = window.innerHeight * 0.42;
+    for(var i = 0; i < 150; i++){
+      parts.push({
+        x: cx + (Math.random() - 0.5) * 280,
+        y: cy + (Math.random() - 0.5) * 80,
+        vx: (Math.random() - 0.5) * 10,
+        vy: -Math.random() * 13 - 2,
+        s: 4 + Math.random() * 6,
+        c: PALETTE[(Math.random() * PALETTE.length) | 0],
+        rot: Math.random() * 6.28,
+        vr: (Math.random() - 0.5) * 0.36,
+        life: 1
+      });
+    }
+    if(!confRAF) confRAF = requestAnimationFrame(confLoop);
+  }
+  function confLoop(){
+    cctx.clearRect(0, 0, confCanvas.width, confCanvas.height);
+    for(var i = 0; i < parts.length; i++){
+      var p = parts[i];
+      p.vy += 0.3; p.x += p.vx; p.y += p.vy; p.vx *= 0.995; p.rot += p.vr; p.life -= 0.0075;
+      cctx.save();
+      cctx.translate(p.x, p.y);
+      cctx.rotate(p.rot);
+      cctx.globalAlpha = Math.max(0, p.life);
+      cctx.fillStyle = p.c;
+      cctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.62);
+      cctx.restore();
+    }
+    parts = parts.filter(function(p){ return p.life > 0 && p.y < confCanvas.height + 60; });
+    if(parts.length){ confRAF = requestAnimationFrame(confLoop); }
+    else { confRAF = null; cctx.clearRect(0, 0, confCanvas.width, confCanvas.height); }
+  }
+
+  /* ======================= SPIN ======================= */
+  var strip = $('#resultStrip');
+
+  function setBusy(b){
+    state.spinning = b;
+    $('#hub').classList.toggle('busy', b);
+    renderWinners();
+  }
+
+  function spin(){
+    if(state.spinning) return;
+    var n = state.participants.length;
+    if(n < 2){ toast('Добавьте минимум 2 участника'); return; }
+    if(state.winners.length >= state.copies){ toast('Все копии уже разыграны'); return; }
+
+    var wset = wonSet();
+    var avail = [];
+    for(var i = 0; i < n; i++) if(!wset.has(i)) avail.push(i);
+    if(!avail.length){ toast('Не осталось участников для розыгрыша'); return; }
+
+    var winnerIndex = avail[(Math.random() * avail.length) | 0];
+
+    strip.classList.remove('win');
+    strip.textContent = 'Колесо крутится…';
+    setBusy(true);
+
+    var seg = 360 / n;
+    // final wheel angle so that the pointer (270°) lands inside the winner's sector
+    var theta = (winnerIndex + 0.5) * seg + (Math.random() - 0.5) * seg * 0.7;
+    var baseRot = ((270 - theta) % 360 + 360) % 360;
+
+    var startRot = state.rot;
+    var turns = 5 + ((Math.random() * 2) | 0);
+    var base = startRot + turns * 360;
+    var targetRot = base + (((baseRot - base) % 360) + 360) % 360;
+    var dur = 4700 + Math.random() * 1000;
+
+    var t0 = performance.now();
+    var lastSeg = -1;
+    var lastTickAt = 0;
+
+    function frame(now){
+      var t = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - t, 4);             // easeOutQuart
+      state.rot = startRot + (targetRot - startRot) * e;
+      applyRotation();
+
+      var a = ((270 - state.rot) % 360 + 360) % 360;
+      var idx = Math.floor(a / seg);
+      if(idx !== lastSeg){
+        lastSeg = idx;
+        var stamp = nowMs();
+        if(t > 0.02 && t < 0.997 && stamp - lastTickAt > 27){
+          lastTickAt = stamp;
+          tick(Math.pow(1 - t, 3));   // быстро -> звонче и тише
+        }
+      }
+
+      if(t < 1){ requestAnimationFrame(frame); }
+      else { finishSpin(winnerIndex); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finishSpin(winnerIndex){
+    state.rot = ((state.rot % 360) + 360) % 360;
+    applyRotation();
+
+    var name = state.participants[winnerIndex];
+    state.winners.push({ name: name, idx: winnerIndex });
+
+    setBusy(false);
+    renderParticipants();
+    drawWheel();
+    renderWinners();
+    save();
+
+    strip.classList.add('win');
+    var place = state.winners.length;
+    strip.innerHTML = '<span>🏆</span> <span>Победитель' + (state.copies > 1 ? ' №' + place : '') + ':</span> <b>' + escapeHtml(name) + '</b>';
+    fanfare();
+    burst();
+
+    if(state.winners.length >= state.copies){
+      setTimeout(function(){
+        var last = state.participants.length === state.winners.length;
+        toast(last ? 'Все участники разыграны!' : 'Все копии разыграны — нажмите «Сброс» для нового розыгрыша');
+      }, 900);
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  /* ======================= events ======================= */
+  $('#spinBtn').addEventListener('click', spin);
+  $('#hub').addEventListener('click', spin);
+  $('#hub').addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spin(); } });
+
+  $('#resetBtn').addEventListener('click', function(){
+    if(state.spinning){ toast('Дождитесь остановки колеса'); return; }
+    if(!state.winners.length){ toast('Пока нечего сбрасывать'); return; }
+    resetWinners();
+    strip.classList.remove('win');
+    strip.textContent = 'Колесо готово к розыгрышу';
+    save(); renderAll();
+  });
+
+  $('#addBtn').addEventListener('click', function(){
+    var inp = $('#pInput');
+    var ok = addParticipant(inp.value);
+    if(ok){ blip(); inp.value = ''; inp.focus(); save(); renderAll(); }
+  });
+  $('#pInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); $('#addBtn').click(); }
+  });
+
+  $('#bulkReplace').addEventListener('click', function(){
+    var list = parseList($('#bulkInput').value);
+    if(!list.length){ toast('Вставьте список участников'); return; }
+    var seen = {};
+    var uniq = [];
+    list.forEach(function(n){
+      var k = n.toLowerCase();
+      if(!seen[k] && uniq.length < 200){ seen[k] = 1; uniq.push(n); }
+    });
+    state.participants = uniq;
+    resetWinners(true);
+    if(state.copies > uniq.length) state.copies = Math.max(1, uniq.length);
+    save(); renderAll();
+    toast('Добавлено участников: ' + uniq.length);
+  });
+
+  $('#bulkAdd').addEventListener('click', function(){
+    var list = parseList($('#bulkInput').value);
+    if(!list.length){ toast('Вставьте список участников'); return; }
+    var added = 0;
+    list.forEach(function(n){ if(addParticipant(n)) added++; });
+    save(); renderAll();
+    toast('Добавлено: ' + added);
+  });
+
+  $('#shuffleBtn').addEventListener('click', function(){
+    if(state.spinning){ toast('Дождитесь остановки колеса'); return; }
+    for(var i = state.participants.length - 1; i > 0; i--){
+      var j = (Math.random() * (i + 1)) | 0;
+      var tmp = state.participants[i];
+      state.participants[i] = state.participants[j];
+      state.participants[j] = tmp;
+    }
+    resetWinners(true);
+    save(); renderAll();
+    toast('Порядок перемешан');
+  });
+
+  var clearArmed = false, clearTimer = null;
+  $('#clearAllBtn').addEventListener('click', function(){
+    if(state.spinning){ toast('Дождитесь остановки колеса'); return; }
+    if(!state.participants.length) return;
+    if(!clearArmed){
+      clearArmed = true;
+      this.textContent = 'Точно очистить? Нажмите ещё раз';
+      this.style.color = '#fb7185';
+      clearTimeout(clearTimer);
+      clearTimer = setTimeout(function(){
+        clearArmed = false;
+        var el = document.getElementById('clearAllBtn');
+        el.textContent = 'Очистить список';
+        el.style.color = '';
+      }, 3200);
+      return;
+    }
+    clearArmed = false;
+    clearTimeout(clearTimer);
+    this.textContent = 'Очистить список';
+    this.style.color = '';
+    state.participants = [];
+    resetWinners(true);
+    save(); renderAll();
+    toast('Список участников очищен');
+  });
+
+  $('#gameInput').addEventListener('input', function(){
+    state.game = this.value;
+    save();
+    renderGameArt();
+  });
+
+  function setCopies(v){
+    v = Math.max(1, Math.min(99, parseInt(v, 10) || 1));
+    state.copies = v;
+    if(state.winners.length > v) state.winners = state.winners.slice(0, v);
+    save();
+    renderGame(); renderWinners();
+  }
+  $('#copiesInput').addEventListener('change', function(){ setCopies(this.value); });
+  $('#copiesInput').addEventListener('input', function(){
+    var v = parseInt(this.value, 10);
+    if(v >= 1 && v <= 99){ state.copies = v; if(state.winners.length > v) state.winners = state.winners.slice(0, v); save(); renderWinners(); }
+  });
+  $('#minusCopy').addEventListener('click', function(){ setCopies(state.copies - 1); });
+  $('#plusCopy').addEventListener('click', function(){ setCopies(state.copies + 1); });
+
+  /* cover + просмотр крупным планом */
+  var lightbox = $('#lightbox'), lbImg = $('#lbImg');
+  function openLightbox(){
+    if(!state.cover){ toast('Сначала загрузите обложку'); return; }
+    lbImg.src = state.cover;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox(){
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  lightbox.addEventListener('click', closeLightbox);
+  $('#lbClose').addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+  });
+
+  $('#gamePoster').addEventListener('click', function(){
+    if(state.cover) openLightbox();
+  });
+  $('#coverZoom').addEventListener('click', function(e){ e.stopPropagation(); openLightbox(); });
+
+  var coverBox = $('#coverBox'), coverInput = $('#coverInput');
+  coverBox.addEventListener('click', function(e){
+    if(e.target.id === 'coverClear' || e.target.closest('#coverZoom')) return;
+    coverInput.click();
+  });
+  coverInput.addEventListener('change', function(){
+    handleCoverFile(this.files && this.files[0]);
+    this.value = '';
+  });
+  $('#coverClear').addEventListener('click', function(e){
+    e.stopPropagation();
+    state.cover = null;
+    save(); renderGame();
+  });
+  ['dragenter','dragover'].forEach(function(ev){
+    coverBox.addEventListener(ev, function(e){ e.preventDefault(); coverBox.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    coverBox.addEventListener(ev, function(e){ e.preventDefault(); coverBox.classList.remove('drag'); });
+  });
+  coverBox.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) handleCoverFile(f);
+  });
+
+  /* sound */
+  $('#soundBtn').addEventListener('click', function(){
+    state.sound = !state.sound;
+    this.classList.toggle('on', state.sound);
+    $('#soundLabel').textContent = state.sound ? 'Звук вкл.' : 'Звук выкл.';
+    save();
+    if(state.sound){
+      ensureGraph();
+      setMaster(MASTER_LEVEL);
+      blip();
+    }else{
+      setMaster(0);        // мгновенно в тишину
+      stopAllAudio();      // и останавливаем все источники
+    }
+  });
+
+  /* страховка: ушли со вкладки — тишина; остановка колеса тоже глушит «вжух» */
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){
+      stopAllAudio();
+      if(ac && ac.state === 'running'){ try{ ac.suspend(); }catch(e){} }
+    }else if(ac && ac.state === 'suspended'){
+      try{ ac.resume(); }catch(e){}
+    }
+  });
+  window.addEventListener('pagehide', stopAllAudio);
+
+  /* resize */
+  var rt = null;
+  function onResize(){
+    clearTimeout(rt);
+    rt = setTimeout(drawWheel, 120);
+  }
+  window.addEventListener('resize', onResize);
+  if(window.ResizeObserver){
+    new ResizeObserver(function(){ clearTimeout(rt); rt = setTimeout(drawWheel, 60); }).observe(wrap);
+  }
+
+  /* ======================= boot ======================= */
+  load();
+  $('#soundBtn').classList.toggle('on', state.sound);
+  $('#soundLabel').textContent = state.sound ? 'Звук вкл.' : 'Звук выкл.';
+  renderAll();
+  // draw once fonts/layout are settled
+  requestAnimationFrame(drawWheel);
+  setTimeout(drawWheel, 220);
+})();
+</script>
+</body>
+</html>
